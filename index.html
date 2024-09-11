@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обо всем простыми словами</title>
+    <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
+    <link href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css" rel="stylesheet" />
+    <meta http-equiv="Content-Security-Policy" content="default-src * self blob: data: gap:; style-src * self 'unsafe-inline' blob: data: gap:; script-src * 'self' 'unsafe-eval' 'unsafe-inline' blob: data: gap:; object-src * 'self' blob: data: gap:; img-src * self 'unsafe-inline' blob: data: gap:; connect-src self * 'unsafe-inline' blob: data: gap:; frame-src * self blob: data: gap:;">
+
+    <style>
+      body { max-width: 960px; margin: 0 auto; margin-top: 80px; padding: 20px; font-family: "Press Start 2P"; }
+
+      .searchInput { margin: 60px 0; display: flex; }
+      .searchInput .nes-btn { flex-shrink: 0; }
+
+      #container { display: none; }
+
+      #answer { white-space: pre-wrap; max-width: 800px; }
+      #answer.loading::after {
+          content: '...';
+          display: inline-block;
+          width: 48px;
+          clip-path: inset(0 100% 0 0);
+          animation: loading 1s steps(4) infinite;
+      }
+      @keyframes loading {to{clip-path: inset(0 -34% 0 0)}}
+    </style>
+    <script>
+    window.addEventListener('load', function() {
+        const decoder = new TextDecoder()
+        const containerEl = document.getElementById('container')
+        const answerEl = document.getElementById('answer')
+        const titleEl = document.getElementById('title')
+        const formEl = document.getElementById('form')
+
+        let abortController
+
+        formEl.addEventListener("submit", e => {
+          containerEl.style.display = 'block' 
+          e.preventDefault()
+
+          answerEl.innerText = ''
+          answerEl.classList.add('loading')
+
+          const formData = new FormData(formEl)
+          const term = formData.get('term')
+
+          titleEl.innerText = term
+          describe(term)
+        })
+
+        function describe(term) {
+          if (abortController) abortController.abort('New request')
+          abortController = new AbortController()
+          const signal = abortController.signal
+
+          fetch('/define', {
+              method: 'POST',
+              body: JSON.stringify({ term }),
+              headers: { 'Content-Type': 'application/json' },
+              signal: signal
+          })
+          .then(async res => {
+              const reader = res.body.getReader()
+              while (true) {
+                const { done, value } = await reader.read()
+                if (done) { break }
+                const text = decoder.decode(value)
+                answerEl.innerText += text
+              }
+          })
+          .then(() => { answerEl.classList.remove('loading') })
+        }
+    })
+    </script>
+</head>
+<body>
+    <h1>Обо всем простыми словами</h1>
+    <p>Введи термин и мы расскажем, что это такое,<br>в простой и доступной форме</p>
+
+    <form id="form" class="searchInput">
+        <input type="text" class="nes-input" name="term">
+        <button type="submit" class="nes-btn is-primary">Что это такое?</button>
+    </form>
+
+    <div class="nes-container is-rounded with-title" id="container">
+        <p class="title nes-text is-primary" id="title"></p>
+        <pre id="answer"></pre>
+    </div>
+</body>
+</html>

@@ -1,0 +1,26 @@
+name: deploy-on-bult
+on: push
+jobs:
+  update-index-html:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: my-step
+        run: |
+          cat <<EOT >> patch.conf
+          apiVersion: score.dev/v1b1
+
+          containers:
+            app:
+              files:
+                - target: /app/index.html
+                  content: |
+          $(awk '{print "          " $0}' ${{ github.workspace }}/index.html)
+          EOT
+
+          curl --request PATCH \
+            --url 'https://bult.pro/cd/webhook?projectID=${{ secrets.PROJECTID }}&applyChanges=true' \
+            --header 'Authorization: Bearer ${{ secrets.BULTTOKEN }}' \
+            --header 'content-type: multipart/form-data' \
+            --form file=@patch.conf
